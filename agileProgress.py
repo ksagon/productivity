@@ -1,39 +1,34 @@
 #!/usr/bin/python
 
-import sys
-import json
-import os
-import httplib
-import urllib
-import ssl
-
-import ConfigParser
+import sys, json, os, httplib, urllib, ssl
 
 from oauth2client.client import flow_from_clientsecrets
 from apiclient.discovery import build
-
 from restkit import Resource, BasicAuth, request
+from Options import Options
 
-def processWorkFromJira(since, config):
-  verbose = config.getboolean('general', 'verbose')
+def processWorkFromJira(opts):
+  verbose = opts.verbose
 
-  user = config.get('jira', 'user')
-  password = config.get('jira', 'password')
+  outputFile = open(opts.outputFile, 'w')
+
+  user = opts.user
+  password = opts.password
   auth = BasicAuth(user, password)
 
-  jiraHost = config.get('jira', 'host')
+  jiraHost = opts.host
 
-  jql_projects = 'project in (' + config.get('jira', 'projects') + ')'
+  jql_projects = 'project in (' + opts.projects + ')'
   jql_status = 'status in (Resolved,Closed)'
-  jql_since = 'resolutiondate >= "' + since + '"'
+  jql_type = 'issuetype in (Story,Bug)'
+  jql_since = 'resolutiondate >= "' + opts.since + '"'
   jql_and = " AND "
 
-  jql = jql_projects + jql_and + jql_status + jql_and + jql_since
+  jql = jql_projects + jql_and + jql_status + jql_and + jql_since + jql_and + jql_type
 
   encoded_jql = urllib.quote_plus(jql)
 
-  fields = config.get('jira', 'fields')
-  log(fields);
+  fields = opts.fields
 
   pageSize = 20
   startAt = 0
@@ -42,7 +37,7 @@ def processWorkFromJira(since, config):
     jiraPath = jiraHost + "/rest/api/2/search?maxResults=" + str(pageSize) + "&startAt=" + str(startAt) + "&fields=" + fields + "&jql=" + encoded_jql
 
     resource = Resource(jiraPath, filters=[auth])
-
+    
     response = resource.get(headers = {'Content-Type' : 'application/json'})
 
     stories = json.loads(response.body_string())
@@ -71,7 +66,7 @@ def processWorkFromJira(since, config):
           if story["fields"]["issuetype"] is not None:
             issuetype = story["fields"]["issuetype"]["name"]
 
-          writeStory(issuetype, jiraNumber, jiraStatus, sprintDate, assignee)
+          writeStory(issuetype, jiraNumber, jiraStatus, sprintDate, assignee, outputFile)
 
       if storiesFound > 0 and storiesFound < storiesTotal:
         startAt += pageSize
@@ -79,25 +74,20 @@ def processWorkFromJira(since, config):
         break
     else:
       break
+  
+  outputFile.close()
 
-def writeStory(issuetype, jiraNumber, jiraStatus, resolutionDate, assignee):
+def writeStory(issuetype, jiraNumber, jiraStatus, resolutionDate, assignee, outputFile):
   outputFile.write(jiraNumber + "," + issuetype + "," + jiraStatus + "," + resolutionDate + "," + assignee + "\n")  
 
 def log(msg):
   sys.stdout.write(msg + "\n")
 
+def main(argv):
+  opts = Options('agileProgress.ini', argv)
 
-workSince = sys.argv[1]
-if not workSince:
-  workSince = '2015-01-01'
+  processWorkFromJira(opts)
 
-config = ConfigParser.RawConfigParser()
-config.read('agileProgress.ini')
+if __name__ == "__main__":
+   main(sys.argv[1:])
 
-
-outputFileName = sys.argv[2]
-outputFile = open(outputFileName, 'w')
-
-processWorkFromJira(sys.argv[1], config)
-      
-outputFile.close()
