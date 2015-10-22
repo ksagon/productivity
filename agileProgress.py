@@ -23,8 +23,9 @@ def processWorkFromJira(opts):
   jql_type = 'issuetype in (Story,Bug)'
   jql_since = 'resolutiondate >= "' + opts.since + '"'
   jql_and = " AND "
+  jql_order_by = " ORDER BY resolutiondate"
 
-  jql = jql_projects + jql_and + jql_status + jql_and + jql_since + jql_and + jql_type
+  jql = jql_projects + jql_and + jql_status + jql_and + jql_since + jql_and + jql_type + jql_order_by
 
   encoded_jql = urllib.quote_plus(jql)
 
@@ -41,7 +42,7 @@ def processWorkFromJira(opts):
     response = resource.get(headers = {'Content-Type' : 'application/json'})
 
     stories = json.loads(response.body_string())
-
+    
     if "issues" in stories:
       storiesFound = len(stories["issues"])
       storiesTotal = stories["total"]
@@ -54,6 +55,8 @@ def processWorkFromJira(opts):
           sprintName = ""
           sprintDate = ""
           assignee = ""
+          createdby = ""
+          created = ""
           epic = ""
           issuetype = ""
 
@@ -63,10 +66,16 @@ def processWorkFromJira(opts):
           if story["fields"]["assignee"] is not None:
             assignee = story["fields"]["assignee"]["displayName"]
 
+          if story["fields"]["creator"] is not None:
+            createdby = story["fields"]["creator"]["displayName"]
+
+          if story["fields"]["created"] is not None:
+            created = story["fields"]["created"]
+
           if story["fields"]["issuetype"] is not None:
             issuetype = story["fields"]["issuetype"]["name"]
 
-          writeStory(issuetype, jiraNumber, jiraStatus, sprintDate, assignee, outputFile)
+          writeStory(issuetype, jiraNumber, jiraStatus, sprintDate, assignee, createdby, created, outputFile)
 
       if storiesFound > 0 and storiesFound < storiesTotal:
         startAt += pageSize
@@ -77,8 +86,8 @@ def processWorkFromJira(opts):
   
   outputFile.close()
 
-def writeStory(issuetype, jiraNumber, jiraStatus, resolutionDate, assignee, outputFile):
-  outputFile.write(jiraNumber + "," + issuetype + "," + jiraStatus + "," + resolutionDate + "," + assignee + "\n")  
+def writeStory(issuetype, jiraNumber, jiraStatus, resolutionDate, assignee, createdby, created, outputFile):
+  outputFile.write(jiraNumber + "," + issuetype + "," + jiraStatus + "," + resolutionDate + "," + assignee  + "," + created + "," + createdby + "\n")  
 
 def log(msg):
   sys.stdout.write(msg + "\n")
