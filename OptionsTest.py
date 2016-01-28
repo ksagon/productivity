@@ -55,7 +55,7 @@ class OptionsTest(unittest.TestCase):
     args = []
     opt = Options('agileProgress.ini', args)
 
-    assert opt.fields == 'issuetype,summary,status,resolutiondate,assignee'
+    assert opt.fields == 'issuetype,summary,status,resolutiondate,assignee,creator,created,customfield_10006'
 
   def testOutput(self):
     args = ['-o', 'bobs-progress.csv']
