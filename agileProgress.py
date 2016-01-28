@@ -9,7 +9,7 @@ def main(argv):
   opts = Options('agileProgress.ini', argv)
 
   processor = JiraProcessor(opts)
-  processor.processWorkFromJiraClient()
+  processor.processCompleted()
 
 
 if __name__ == "__main__":

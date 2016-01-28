@@ -1,4 +1,4 @@
-import sys, dateutil.parser
+import sys
 
 from Options import Options
 from jira import JIRA
@@ -12,11 +12,22 @@ class JiraProcessor:
     self.opts = opts
     self.verbose = self.opts.verbose
 
-  def processWorkFromJiraClient(self):
+  def processEpic(self, epic):
+    outputFile = open(self.opts.outputFile, 'a')
+
+    jql = self.initEpicJQL(epic)
+    self.processWorkFromJiraClient(jql, outputFile)
+      
+
+  def processCompleted(self):
     outputFile = open(self.opts.outputFile, 'w')
 
-    jira = self.initJira()
     jql = self.initJQL()
+    self.processWorkFromJiraClient(jql, outputFile)
+
+
+  def processWorkFromJiraClient(self, jql, outputFile):
+    jira = self.initJira()
 
     pageSize = 20
     startAt = 0
@@ -28,10 +39,7 @@ class JiraProcessor:
       storiesTotal = issues.total
 
       for i in issues:
-        devTime = self.calcDevTime(i)
-
-        issue = Issue(i, devTime)
-
+        issue = Issue(i)
         self.writeStory(issue, outputFile)
 
       sys.stdout.write('#')
@@ -39,7 +47,7 @@ class JiraProcessor:
 
       if storiesFound > 0 and storiesFound < storiesTotal:
         startAt += pageSize
-        if startAt % 300 == 0:
+        if startAt % 500 == 0:
           print " " + str(startAt) + " / " + str(storiesTotal)
       else:
         print " " + str(storiesTotal) + " / " + str(storiesTotal)
@@ -55,6 +63,21 @@ class JiraProcessor:
 
     return JIRA(options=jira_options, basic_auth=(self.opts.user, self.opts.password) )
 
+
+  def initEpicJQL(self, epic):
+    jql_projects = 'project in (' + self.opts.projects + ')'
+    jql_type = 'issuetype in (Story,Bug)'
+    jql_epic = '"Epic Link" = ' + epic
+    jql_and = " AND "
+    jql_order_by = " ORDER BY resolutiondate"
+
+    jql = jql_projects + jql_and + jql_epic + jql_and + jql_type + jql_order_by
+
+    if self.verbose:
+      print jql
+
+    return jql
+      
 
   def initJQL(self):
     jql_projects = 'project in (' + self.opts.projects + ')'
@@ -72,36 +95,8 @@ class JiraProcessor:
     return jql
 
 
-  def calcDevTime(self, issue):
-    devTime = 0
-    previousStateTransitionTime = ''
-    previousStateTransition = ''
-
-    for history in issue.raw['changelog']['histories']:
-      if history['items'][0]['field'] == 'status':
-        devTime += self.calcIncrementalDevTime(previousStateTransitionTime, previousStateTransition, history['created'], history['items'][0]['toString'])
-        previousStateTransitionTime = history['created']
-        previousStateTransition = history['items'][0]['toString']
-
-    return devTime
-
-
-  def calcIncrementalDevTime(self, startTime, previousState, endTime, currentState):
-    devSeconds = 0
-
-    if previousState == "In Progress":
-      start = dateutil.parser.parse(startTime)
-      end = dateutil.parser.parse(endTime)
-
-      delta = end - start
-
-      devSeconds = delta.days*86400 + delta.seconds
-
-    return devSeconds
-
-
   def writeStory(self, issue, outputFile):
-    outputFile.write(issue.jiraNumber + "," + issue.issuetype + "," + issue.jiraStatus + "," + issue.resolutionDate + "," + issue.assignee  + "," + issue.created + "," + issue.createdby + "," + str(issue.devTimeDays) + "\n")  
+    outputFile.write(issue.jiraNumber + "," + issue.epicLink + "," + issue.issuetype + "," + issue.jiraStatus + "," + issue.resolutionDate + "," + issue.assignee  + "," + issue.created + "," + issue.createdby + "," + str(issue.statusInfo.get('Open', 0)) + "," + str(issue.statusInfo.get('In Progress', 0)) + "," + str(issue.statusInfo.get('Delivered To QA', 0)) + "\n")
 
 
   def log(msg):

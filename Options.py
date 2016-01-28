@@ -9,6 +9,7 @@ class Options:
   password = ""
   projects = ""
   fields = "issuetype,summary,status,resolutiondate,assignee"
+  epics = ""
 
   def __init__(self, iniFile, argv):
     self._initFromIni(iniFile)
@@ -36,6 +37,9 @@ class Options:
     if config.has_option('jira', 'fields'):
       self.fields = config.get('jira', 'fields')
 
+    if config.has_option('jira', 'epics'):
+      self.epics = config.get('jira', 'epics')
+
     if config.has_option('general', 'output'):
       self.outputFile = config.get('general', 'output')
 
@@ -44,7 +48,7 @@ class Options:
 
   def _parseOpts(self, argv):
     try:
-      opts, args = getopt.getopt(argv,"?vh:u:p:s:o:",["verbose", "host=", "user=", "password=", "since=", "projects=", "output="])
+      opts, args = getopt.getopt(argv,"?vh:u:p:s:o:e:",["verbose", "host=", "user=", "password=", "since=", "projects=", "output=", "epics="])
     except getopt.GetoptError:
       self.printHelp()
       sys.exit(-1)
@@ -66,6 +70,8 @@ class Options:
         self.outputFile = arg
       elif opt in ("-s", "--since"):
         self.since = arg
+      elif opt in ("-e", "--epics"):
+        self.epics = arg
 
   def printHelp(self):
     print """
@@ -77,6 +83,7 @@ Options
   -u, --user: the Jira user
   -p, --password: the password for the Jira user
   -s, --since: the earliest date to look back to for delivery
+  -e, --epics: the comma delimited list of epics to process
   -o, --output: the file to send output, if null will write to stdout
   --projects: the list of Jira projects from which to pull issues
     """
